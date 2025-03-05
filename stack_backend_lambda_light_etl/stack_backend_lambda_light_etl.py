@@ -11,7 +11,7 @@ from constructs import Construct
 
 class GenAiVirtualAssistantEtlLambdaStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, input_metadata, input_s3_bucket_arn, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, input_s3_bucket_arn, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         """

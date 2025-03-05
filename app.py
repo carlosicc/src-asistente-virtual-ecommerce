@@ -24,14 +24,12 @@ s3_stack = GenAiVirtualAssistantS3Stack(app,
 etl_stack = GenAiVirtualAssistantEtlLambdaStack(app,
                                                 "GenAiVirtualAssistantEtlLambdaStack",
                                                 env=env_aws_settings,
-                                                input_metadata=env_context_params,
                                                 input_s3_bucket_arn=s3_stack.bucket.bucket_arn)
 
 # DynamoDB & Lambda Stack.
 ddb_stack = GenAiVirtualAssistantDDBLambdaStack(app,
                                                 "GenAiVirtualAssistantDDBLambdaStack",
-                                                env=env_aws_settings,
-                                                input_metadata=env_context_params)
+                                                env=env_aws_settings)
 
 # Bedrock Stack
 bedrock_stack = GenAiVirtualAssistantBedrockStack(app,
@@ -45,12 +43,13 @@ bedrock_stack = GenAiVirtualAssistantBedrockStack(app,
 st_stack = GenAiVirtualAssistantVpcEcsStack(app,
                                             "GenAiVirtualAssistantEcsStreamlitStack",
                                             env=env_aws_settings,
-                                            input_metadata=env_context_params)
+                                            input_ddb_table_arn=ddb_stack.table.table_arn)
 
 # Hard Dependencies
 bedrock_stack.add_dependency(s3_stack)
 bedrock_stack.add_dependency(ddb_stack)
 etl_stack.add_dependency(s3_stack)
+st_stack.add_dependency(ddb_stack)
 
 # Add Tags
 for stack in [s3_stack, etl_stack, bedrock_stack, ddb_stack, st_stack]:

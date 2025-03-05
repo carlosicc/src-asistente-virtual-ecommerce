@@ -8,6 +8,7 @@ from aws_cdk import (
     aws_ec2 as ec2,
     aws_ecs as ecs,
     aws_iam as iam,
+    aws_dynamodb as dynamodb,
     aws_cognito as cognito,
     aws_secretsmanager as secretsmanager,
     aws_cloudfront as cloudfront,
@@ -23,7 +24,7 @@ CUSTOM_HEADER_NAME = "X-Custom-Header"
 
 class GenAiVirtualAssistantVpcEcsStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, input_metadata, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, input_ddb_table_arn, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Define prefix that will be used in some resource names
@@ -50,7 +51,6 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
                                        # container
                                        secret_name=Config.SECRETS_MANAGER_ID
                                        )
-
 
         # VPC for ALB and ECS cluster
         vpc = ec2.Vpc(
@@ -189,36 +189,32 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
         task_role = fargate_task_definition.task_role
         task_role.attach_inline_policy(bedrock_policy)
         
-        # Get DDB Tables names:
-        ddb_tables = []
-            
-        if input_metadata['dynamodb_table_name']:
-            ddb_table_agent = input_metadata['dynamodb_table_name']
-            ddb_tables.append(ddb_table_agent)
+        # Get DDB Table name:        
+        ddb_table_agent = dynamodb.Table.from_table_arn(self, "ddb_ecomm_table_agent", input_ddb_table_arn)
+        ddb_table_name = ddb_table_agent.table_name
 
         # Grant access to DDB tables, individually at policy level
-        for ddb_table in ddb_tables:
-            ddb_policy = iam.Policy(self, f"{prefix}DDBPolicy{ddb_table}",
-                                    statements=[
-                                        iam.PolicyStatement(
-                                            actions=[
-                                                "dynamodb:List*",
-                                                "dynamodb:DescribeTable",
-                                                "dynamodb:Get*",
-                                                "dynamodb:Query",
-                                                "dynamodb:Scan",
-                                                "dynamodb:PutItem",
-                                                "dynamodb:UpdateItem",
-                                                "dynamodb:DeleteItem"
-                                                ],
-                                            resources=[
-                                                f"arn:aws:dynamodb:{self.region}:{self.account}:table/{ddb_table}",
-                                                f"arn:aws:dynamodb:{self.region}:{self.account}:table/{ddb_table}/*"
-                                                ]
-                                        )
-                                    ]
+        ddb_policy = iam.Policy(self, "DDBPolicyActionsForECSTask",
+                                statements=[
+                                    iam.PolicyStatement(
+                                        actions=[
+                                            "dynamodb:List*",
+                                            "dynamodb:DescribeTable",
+                                            "dynamodb:Get*",
+                                            "dynamodb:Query",
+                                            "dynamodb:Scan",
+                                            "dynamodb:PutItem",
+                                            "dynamodb:UpdateItem",
+                                            "dynamodb:DeleteItem"
+                                            ],
+                                        resources=[
+                                            f"arn:aws:dynamodb:{self.region}:{self.account}:table/{ddb_table_name}",
+                                            f"arn:aws:dynamodb:{self.region}:{self.account}:table/{ddb_table_name}/*"
+                                            ]
                                     )
-            task_role.attach_inline_policy(ddb_policy)
+                                ]
+                                )
+        task_role.attach_inline_policy(ddb_policy)
 
         # Grant access to read the secret in Secrets Manager
         secret.grant_read(task_role)

@@ -17,8 +17,7 @@
   "context": {
     "env-virtual-assistant-dev01": {
       "virtual_assistant_data_bucket_arn":"arn:aws:s3:::genai-carlos-contreras-bucket-data-quarks-labs-oregon-01",
-      "s3_knowledge_base_prefixes":["datasets/demo_kb/knowledge-base-ecommerce-s3-001/v1/"],
-      "bedrock_agent_name":"virtual-assistant-agent-dev01"
+      "s3_knowledge_base_prefixes":["datasets/demo_kb/knowledge-base-ecommerce-s3-001/v1/"]
     },
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,

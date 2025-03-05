@@ -12,7 +12,7 @@ from constructs import Construct
 
 class GenAiVirtualAssistantDDBLambdaStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, input_metadata, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         """
