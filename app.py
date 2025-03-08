@@ -4,9 +4,9 @@ from stack_backend_s3.stack_backend_s3 import GenAiVirtualAssistantS3Stack
 from stack_backend_lambda_light_etl.stack_backend_lambda_light_etl import GenAiVirtualAssistantEtlLambdaStack
 from stack_backend_bedrock.stack_backend_bedrock import GenAiVirtualAssistantBedrockStack
 from stack_frontend_ddb_lambda.stack_frontend_ddb_lambda import GenAiVirtualAssistantDDBLambdaStack
-from stack_frontend_vpc_ecs_streamlit.stack_frontend_vpc_ecs_streamlit import GenAiVirtualAssistantVpcEcsStack
+from stack_frontend_vpc_ecs_streamlit.stack_frontend_vpc_ecs_streamlit import GenAiVirtualAssistantVpcEcsStreamlitStack
 
-# AWS Settings
+# AWS Settings 
 app = App()
 env_aws_settings = Environment(account=os.environ['CDK_DEFAULT_ACCOUNT'], region=os.environ['CDK_DEFAULT_REGION'])
 
@@ -24,6 +24,7 @@ s3_stack = GenAiVirtualAssistantS3Stack(app,
 etl_stack = GenAiVirtualAssistantEtlLambdaStack(app,
                                                 "GenAiVirtualAssistantEtlLambdaStack",
                                                 env=env_aws_settings,
+                                                input_metadata=env_context_params,
                                                 input_s3_bucket_arn=s3_stack.bucket.bucket_arn)
 
 # DynamoDB & Lambda Stack.
@@ -40,10 +41,11 @@ bedrock_stack = GenAiVirtualAssistantBedrockStack(app,
                                                   input_s3_bucket_arn=s3_stack.bucket.bucket_arn)
 
 # Frontend Streamlit (ST)
-st_stack = GenAiVirtualAssistantVpcEcsStack(app,
-                                            "GenAiVirtualAssistantEcsStreamlitStack",
+st_stack = GenAiVirtualAssistantVpcEcsStreamlitStack(app,
+                                            "GenAiVirtualAssistantVpcEcsStreamlitStack",
                                             env=env_aws_settings,
-                                            input_ddb_table_arn=ddb_stack.table.table_arn)
+                                            input_metadata=env_context_params,
+                                            input_ddb_table_arn=ddb_stack.table.table_arn                                            )
 
 # Hard Dependencies
 bedrock_stack.add_dependency(s3_stack)

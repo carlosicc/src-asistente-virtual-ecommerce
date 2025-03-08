@@ -9,5 +9,3 @@ services:
     ports:
       - "8080:8501"
     entrypoint: streamlit run app.py
-    
-

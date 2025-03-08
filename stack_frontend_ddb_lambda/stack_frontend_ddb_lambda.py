@@ -21,10 +21,10 @@ class GenAiVirtualAssistantDDBLambdaStack(Stack):
 
         # Simple table. No Global settings. Delete TBL on Stack Destroy.  More at https://go.aws/3NSxVck
         self.table = dynamodb.TableV2(self, "ddb-tbl-virtual-assistant",
-                                 partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-                                 sort_key=dynamodb.Attribute(name="sk", type=dynamodb.AttributeType.STRING),
-                                 billing= dynamodb.Billing.on_demand(),
-                                 removal_policy=RemovalPolicy.DESTROY
+                                      partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+                                      sort_key=dynamodb.Attribute(name="sk", type=dynamodb.AttributeType.STRING),
+                                      billing= dynamodb.Billing.on_demand(),
+                                      removal_policy=RemovalPolicy.DESTROY
                      )
         
         """

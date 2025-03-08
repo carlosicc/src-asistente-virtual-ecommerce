@@ -9,7 +9,6 @@ from aws_cdk import (
     aws_ecs as ecs,
     aws_iam as iam,
     aws_dynamodb as dynamodb,
-    aws_cognito as cognito,
     aws_secretsmanager as secretsmanager,
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
@@ -22,34 +21,21 @@ from frontend_docker_app.config_file import Config
 
 CUSTOM_HEADER_NAME = "X-Custom-Header"
 
-class GenAiVirtualAssistantVpcEcsStack(Stack):
+class GenAiVirtualAssistantVpcEcsStreamlitStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, input_ddb_table_arn, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, input_metadata, input_ddb_table_arn, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Define prefix that will be used in some resource names
         prefix = Config.STACK_NAME
-
-        # Create Cognito user pool
-        user_pool = cognito.UserPool(self, f"{prefix}UserPool")
-
-        # Create Cognito client
-        user_pool_client = cognito.UserPoolClient(self, f"{prefix}UserPoolClient",
-                                                  user_pool=user_pool,
-                                                  generate_secret=True
-                                                  )
-
-        # Store Cognito parameters in a Secrets Manager secret
-        secret = secretsmanager.Secret(self, f"{prefix}ParamCognitoSecret",
+        
+        # Store Streamlit Application Username and Password, using Secrets Manager. 
+        secret_auth = secretsmanager.Secret(self, "SsmParamStreamlitSecretAppSrv",
+                                       secret_name=input_metadata['ssm_secret_name'],
                                        secret_object_value={
-                                           "pool_id": SecretValue.unsafe_plain_text(user_pool.user_pool_id),
-                                           "app_client_id": SecretValue.unsafe_plain_text(user_pool_client.user_pool_client_id),
-                                           "app_client_secret": user_pool_client.user_pool_client_secret
-                                       },
-                                       # This secret name should be identical
-                                       # to the one defined in the Streamlit
-                                       # container
-                                       secret_name=Config.SECRETS_MANAGER_ID
+                                           "username": SecretValue.unsafe_plain_text(input_metadata['ssm_app_server_username'],),
+                                           "password": SecretValue.unsafe_plain_text(input_metadata['ssm_app_server_password'],)
+                                       }
                                        )
 
         # VPC for ALB and ECS cluster
@@ -59,9 +45,14 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
             ip_addresses=ec2.IpAddresses.cidr("10.0.0.0/16"),
             max_azs=2,
             vpc_name=f"{prefix}-stl-vpc",
-            nat_gateways=1,
+            nat_gateways=1
         )
 
+        # Add SSM Endpoints to the VPC
+        vpc.add_interface_endpoint("VpcGenAiSsmEndpoint",
+                                   service=ec2.InterfaceVpcEndpointAwsService.SSM)
+
+        # Security Group
         ecs_security_group = ec2.SecurityGroup(
             self,
             f"{prefix}SecurityGroupECS",
@@ -69,6 +60,7 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
             security_group_name=f"{prefix}-stl-ecs-sg",
         )
 
+        # ALB Security Group creation
         alb_security_group = ec2.SecurityGroup(
             self,
             f"{prefix}SecurityGroupALB",
@@ -76,6 +68,7 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
             security_group_name=f"{prefix}-stl-alb-sg",
         )
 
+        # Add Security Group Inbound Rules
         ecs_security_group.add_ingress_rule(
             peer=alb_security_group,
             connection=ec2.Port.tcp(8501),
@@ -100,6 +93,7 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
         )
 
+        # Add physical resources
         fargate_task_definition = ecs.FargateTaskDefinition(
             self,
             f"{prefix}WebappTaskDef",
@@ -110,6 +104,7 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
         # Build Dockerfile from local folder and push to ECR
         image = ecs.ContainerImage.from_asset('frontend_docker_app')
 
+        # Confirm where to store the logs
         fargate_task_definition.add_container(
             f"{prefix}WebContainer",
             # Use an image from DockerHub
@@ -121,15 +116,11 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
             logging=ecs.LogDrivers.aws_logs(stream_prefix="WebContainerLogs"),
         )
 
-        # Improve Fargate Definition:
-        """_summary_
-        This configuration does the following:
-
+        """Fargate Service Config:
         - Sets a base of 1 for the FARGATE capacity provider, ensuring at least one task is always running on Fargate On-Demand.
         - Uses FARGATE_SPOT for additional capacity with a higher weight, which can help reduce costs.
         - Sets the desired_count to 1, which means the service will maintain at least one running task at all times.
         """
-
         service = ecs.FargateService(
             self,
             f"{prefix}ECSService",
@@ -150,18 +141,17 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
                     weight=4
                 )
             ],
-            desired_count=1
+            desired_count=1,
+            min_healthy_percent=50
         )
 
-        """_summary_
-        To further prevent cold starts, you might want to add a scaling policy. 
-        This isn't strictly necessary with the base capacity provider strategy, but it can help manage load spikes:
-        """
+        # Prevent cold starts, you might want to add a scaling policy. 
         scaling = service.auto_scale_task_count(
             max_capacity=5,
             min_capacity=1
         )
 
+        # Scaling CPU Rules
         scaling.scale_on_cpu_utilization(
             f"{prefix}CpuScaling",
             target_utilization_percent=70,
@@ -169,7 +159,8 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
             scale_out_cooldown=Duration.seconds(60)
         )
 
-        # Grant access to Bedrock, DynamoDB (actions to be limited)
+        # Grant access to Bedrock, DynamoDB
+        # - IMPORTANT: The Agent ARN can be LIMITED here, instead of "*"
         bedrock_policy = iam.Policy(self, f"{prefix}BedrockPolicy",
                                     statements=[
                                         iam.PolicyStatement(
@@ -191,33 +182,10 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
         
         # Get DDB Table name:        
         ddb_table_agent = dynamodb.Table.from_table_arn(self, "ddb_ecomm_table_agent", input_ddb_table_arn)
-        ddb_table_name = ddb_table_agent.table_name
-
-        # Grant access to DDB tables, individually at policy level
-        ddb_policy = iam.Policy(self, "DDBPolicyActionsForECSTask",
-                                statements=[
-                                    iam.PolicyStatement(
-                                        actions=[
-                                            "dynamodb:List*",
-                                            "dynamodb:DescribeTable",
-                                            "dynamodb:Get*",
-                                            "dynamodb:Query",
-                                            "dynamodb:Scan",
-                                            "dynamodb:PutItem",
-                                            "dynamodb:UpdateItem",
-                                            "dynamodb:DeleteItem"
-                                            ],
-                                        resources=[
-                                            f"arn:aws:dynamodb:{self.region}:{self.account}:table/{ddb_table_name}",
-                                            f"arn:aws:dynamodb:{self.region}:{self.account}:table/{ddb_table_name}/*"
-                                            ]
-                                    )
-                                ]
-                                )
-        task_role.attach_inline_policy(ddb_policy)
+        ddb_table_agent.grant_read_write_data(task_role)
 
         # Grant access to read the secret in Secrets Manager
-        secret.grant_read(task_role)
+        secret_auth.grant_read(task_role)
 
         # Add ALB as CloudFront Origin
         origin = origins.LoadBalancerV2Origin(
@@ -227,6 +195,7 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
             protocol_policy=cloudfront.OriginProtocolPolicy.HTTP_ONLY,
         )
 
+        # Cloudfront Options
         cloudfront_distribution = cloudfront.Distribution(
             self,
             f"{prefix}CfDist",
@@ -246,6 +215,7 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
             open=True,
         )
 
+        # Add Targets to ELB
         http_listener.add_targets(
             f"{prefix}TargetGroup",
             target_group_name=f"{prefix}-tg",
@@ -258,8 +228,8 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
             protocol=elbv2.ApplicationProtocol.HTTP,
             targets=[service],
         )
-        # add a default action to the listener that will deny all requests that
-        # do not have the custom header
+        
+        # Add a default action to the listener that will deny all requests that
         http_listener.add_action(
             "default-action",
             action=elbv2.ListenerAction.fixed_response(
@@ -271,4 +241,3 @@ class GenAiVirtualAssistantVpcEcsStack(Stack):
 
         # Output CloudFront URL & Cognito pool id
         CfnOutput(self, "CloudFrontDistributionURL", value=cloudfront_distribution.domain_name)
-        CfnOutput(self, "CognitoPoolId", value=user_pool.user_pool_id)

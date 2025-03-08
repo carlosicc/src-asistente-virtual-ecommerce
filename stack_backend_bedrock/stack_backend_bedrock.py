@@ -130,9 +130,9 @@ class GenAiVirtualAssistantBedrockStack(Stack):
         Do not use any XML tags in the response.
         """
 
-        # Create Agent With KB and Guardrail. Confirm models; e.g. ANTHROPIC_CLAUDE_3_5_HAIKU_V1_0. 
+        # Create Agent With KB and Guardrail. Confirm models; e.g. ANTHROPIC_CLAUDE_HAIKU_V1_0, ANTHROPIC_CLAUDE_3_5_HAIKU_V1_0, etc. 
         agent = bedrock.Agent(self, 'Agent01',
-            foundation_model=bedrock.BedrockFoundationModel.AMAZON_NOVA_PRO_V1,
+            foundation_model=bedrock.BedrockFoundationModel.ANTHROPIC_CLAUDE_3_5_HAIKU_V1_0,
             instruction=agent_instruction,
             user_input_enabled=True,
             code_interpreter_enabled=False,            
@@ -164,9 +164,10 @@ class GenAiVirtualAssistantBedrockStack(Stack):
         # Add Action Groups
         agent.add_action_group(action_group)
 
-        # Add Agent alias, as we have tested it already N times
+        # Add Agent alias; e.g. if CHANGES, then add >>> alias_name='virtual-assistant-alias-anthropic'
         agent_alias_v1 = bedrock.AgentAlias(self, 'AgentAlias01',
-            agent=agent,
+            agent=agent, 
+            alias_name='virtual-assistant-alias-anthropic',        
             description='Agent alias for the virtual assistant, with KB included'
         )
 

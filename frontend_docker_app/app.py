@@ -1,15 +1,82 @@
 """
 @ Streamlit app credits: 
     github.com/aws-samples/amazon-bedrock-samples/blob/function_calling/agents/customer-relationship-management-agent/app.py
+
+@ Important:
+    The auth mechanism is not secure. It's only for demo Purposes. It's not using Cognito, WAF, SSO, or anything similar.
+    From ST support: "values your app stores in session_state are NOT sent to the browser or otherwise available client-side in any way…"
+    Source: https://discuss.streamlit.io/t/hey-i-have-a-serious-issue-about-storing-things-in-the-session-state/35761
 """
 import streamlit as st
+import boto3
+import json
+from botocore.exceptions import ClientError
 from utils_agent import BedrockAgent
+
+# Initialize AWS session
+session = boto3.session.Session()
+
+def get_secret():
+    """
+    Note: Hardcoding Secret and Region, just for Demo purposes
+    """
+    secret_name = "dev/ecomm/appServerDev01Credentials"
+    region_name = "us-west-2"
+
+    # Create a Secrets Manager client
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+    except ClientError as e:
+        # Handle any AWS errors here
+        st.error(f"Error retrieving secret: {e}")
+        return None
+    else:
+        # Decrypt secret using the associated KMS key
+        secret = get_secret_value_response['SecretString']
+        return json.loads(secret)
+
+
+def check_password():
+    """Returns `True` if the user had the correct password."""
+
+    def login_form():
+        """Form with widgets to collect user information"""
+        with st.form("Credentials"):
+            st.text_input("Username", key="username")
+            st.text_input("Password", type="password", key="password")
+            return st.form_submit_button("Log in")
+
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
+    if not st.session_state.authenticated:
+        st.title("Please log in")
+        if login_form():
+            creds = get_secret()
+            if creds:
+                if (st.session_state.username == creds['username'] 
+                    and st.session_state.password == creds['password']):
+                    st.session_state.authenticated = True
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials")
+            else:
+                st.error("Failed to retrieve credentials")
+        return False
+
+    return True
 
 
 def main():
-    """
-    @ Docs to be added
-    """
+    if not check_password():
+        return
     st.title("🛍️ Your Virtual Assistant 🛎️")
     col1, col2, col3 = st.columns((6, 2, 2))
 
@@ -18,8 +85,8 @@ def main():
         st.subheader(":grey[Amazon Bedrock Agents]")
 
     # Change the IDs for your own:
-    agent_id = st.text_input("Agent ID","RPUUMWS1DR")
-    agent_alias_id = st.text_input("Agent Alias ID", "WJFWXWJC1E")
+    agent_id = st.text_input("Agent ID","XXXXXXXX")
+    agent_alias_id = st.text_input("Agent Alias ID", "YYYYYYYY")
 
     if st.button("Initialize Agent"):
         if agent_id and agent_alias_id:

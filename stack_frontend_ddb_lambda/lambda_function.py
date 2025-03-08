@@ -135,3 +135,7 @@ def upsert_order(
 def lambda_handler(event, context):
     logger.info(f"Event: {event}")
     return app.resolve(event, context)
+
+
+if __name__ == "__main__":  
+    print(app.get_openapi_json_schema())

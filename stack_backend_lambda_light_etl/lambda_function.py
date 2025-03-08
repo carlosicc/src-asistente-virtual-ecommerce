@@ -1,4 +1,5 @@
 import re
+import os
 import json
 import boto3
 import awswrangler as wr
@@ -17,8 +18,9 @@ def lambda_handler(event, context):
         num_rows_per_file = 10
         local_number_of_threads = 20
 
-        # Change this path to the Knowledge Base Data Source location
-        output_s3_key = "datasets/demo_kb/knowledge-base-ecommerce-s3-001/v1"
+        # Knowledge Base Data Source location, coming from CDK Stack reading cdk.json
+        # i.e. instead of hard-coding: datasets/demo_kb/knowledge-base-ecommerce-s3-001/v1
+        output_s3_key = os.environ['KB_S3_ECOMM_PATH']
         
         # Read CSV directly into DataFrame using awswrangler
         print(f"Processing file from {s3_path}")

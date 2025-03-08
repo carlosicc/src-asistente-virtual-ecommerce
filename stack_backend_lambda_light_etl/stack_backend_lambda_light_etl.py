@@ -11,7 +11,7 @@ from constructs import Construct
 
 class GenAiVirtualAssistantEtlLambdaStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, input_s3_bucket_arn, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, input_metadata, input_s3_bucket_arn, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         """
@@ -27,6 +27,7 @@ class GenAiVirtualAssistantEtlLambdaStack(Stack):
             "virtual-assistant-lambda-etl-fn",
             entry="./stack_backend_lambda_light_etl/",
             runtime=_lambda.Runtime.PYTHON_3_12,
+            memory_size=1024,
             description="Function to process the new incoming inventory",
             index="lambda_function.py",
             handler="lambda_handler",
@@ -39,6 +40,10 @@ class GenAiVirtualAssistantEtlLambdaStack(Stack):
                 ],
             timeout=Duration.seconds(600),
         )
+
+        # Add OS variable with S3 KB output path, to Lambda function
+        # - Note: determine if element 0 from 's3_knowledge_base_prefixes' should be hard-coded or not!
+        self.lambda_fn.add_environment(key="KB_S3_ECOMM_PATH", value=input_metadata['s3_knowledge_base_prefixes'][0].rstrip('/'))
 
         """
         @ S3 Permissions
