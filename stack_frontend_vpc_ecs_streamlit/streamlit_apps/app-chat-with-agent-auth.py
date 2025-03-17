@@ -16,13 +16,11 @@ from utils_agent import BedrockAgent
 # Initialize AWS session
 session = boto3.session.Session()
 
-def get_secret():
+def get_secret(secret_name = "dev/ecomm/appServerDev01Credentials", region_name = "us-west-2"):
     """
     Note: Hardcoding Secret and Region, just for Demo purposes
     """
-    secret_name = "dev/ecomm/appServerDev01Credentials"
-    region_name = "us-west-2"
-
+    
     # Create a Secrets Manager client
     client = session.client(
         service_name='secretsmanager',
