@@ -113,6 +113,7 @@ class GenAiVirtualAssistantBedrockStack(Stack):
         @ Bedrock Agents creation
         """
 
+        # IMPORTANT: Not a GOOD PRACTICE to hardcode the agent_instruction. Use a DB, Bedrock Prompt Management, etc., and pull it dynamically.
         agent_instruction = """
         You are a friendly virtual assistant for our department store. You can answer questions about the products we sell, in our department store, but you can also place orders.
         For questions about products, query your knowledge base to find the answer.
