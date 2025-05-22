@@ -4,7 +4,7 @@ Este repositorio contiene el material de Carlos Contreras, con conceptos básico
 
 ## 🎯 Descripción
 
-El contenido está diseñado para proporcionar una comprensión práctica de cómo desarrollar aplicaciones de IA Generativa en AWS, cubriendo desde conceptos básicos hasta implementaciones avanzadas. Se centra en el uso de Amazon Bedrock y su integración con otros servicios AWS.
+El contenido está diseñado para proporcionar una comprensión práctica de cómo desarrollar aplicaciones de IA Generativa en AWS, cubriendo desde conceptos básicos hasta implementaciones avanzadas. Se centra en el uso de Amazon Bedrock y su integración con otros servicios AWS. Este repositorio usa Código como Infraestructura con Amazon CDK.
 
 ## 🛠️ Estructura del Repositorio
 
